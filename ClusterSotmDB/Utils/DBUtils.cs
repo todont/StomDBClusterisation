@@ -19,6 +19,5 @@ namespace ClusterSotmDB
 
             return DBMySQLUtils.GetDBConnection(host, port, database, username, password);
         }
-
     }
 }
