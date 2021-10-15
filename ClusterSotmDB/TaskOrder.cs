@@ -9,17 +9,18 @@ namespace ClusterSotmDB
 {
     class TaskOrder
     {
-        public readonly uint id;
-        public TaskOrder(uint i)
+        public readonly long id;
+        public TaskOrder(long i, long j)
         {
             id = i;
+            services = new SortedSet<long> { j };
         }
-        private SortedSet<uint> services;
-        public void AddServiceById(uint i)
+        private SortedSet<long> services = new SortedSet<long>();
+        public void AddServiceById(long i)
         {
             services.Add(i);
         }
-        public bool GetServiceById(uint i)
+        public bool GetServiceById(long i)
         {
             return services.Contains(i);
         }

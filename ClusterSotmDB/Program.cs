@@ -36,7 +36,7 @@ namespace ClusterSotmDB
         }
         private static void QueryStomdb(MySqlConnection conn)
         {
-            string sql = "Select ID_SERVICE,ID_CASE from case_services ORDER BY ID_SERVICE";
+            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE from case_services WHERE ID_DOCTOR=207 ORDER BY ID_CASE ";
 
             // Создать объект Command.
             MySqlCommand cmd = new MySqlCommand();
@@ -44,20 +44,26 @@ namespace ClusterSotmDB
             // Сочетать Command с Connection.
             cmd.Connection = conn;
             cmd.CommandText = sql;
+            long prevCaseId = 0;
+            List<TaskOrder> cases207 = new List<TaskOrder>();
             using (DbDataReader reader = cmd.ExecuteReader())
             {
                 if (reader.HasRows)
                 {
                     int i = 0;
-                    while (reader.Read()&& i<20)
+                    while (reader.Read())
                     {
-                        long idService = reader.GetInt64(0);
-                        long idCase = reader.GetInt64(1);
-
-                        Console.WriteLine("--------------------");
-                        Console.WriteLine("ID_SERVICE=" + idService); 
-                        Console.WriteLine("ID_CASE=" + idCase);
-                        i++;
+                        long currCaseId = reader.GetInt64(1);
+                        if (currCaseId!=prevCaseId || prevCaseId==0)
+                        {
+                            TaskOrder t = new TaskOrder (currCaseId, reader.GetInt64(2));
+                            cases207.Add(t);
+                        }
+                        else
+                        {
+                            cases207[cases207.Count - 1].AddServiceById(reader.GetInt64(2));
+                        }
+                        prevCaseId = currCaseId;
                     }
                 }
             }
