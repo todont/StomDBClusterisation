@@ -7,23 +7,33 @@ using MySql.Data.MySqlClient;
 
 namespace ClusterSotmDB
 {
-    class TaskOrder
+    class TaskOrder : IComparable<TaskOrder>
     {
         public readonly long id;
         public TaskOrder(long i, long j)
         {
             id = i;
-            services = new SortedSet<long> { j };
+            services = new List<long> { j };
         }
-        private SortedSet<long> services = new SortedSet<long>();
+        private List<long> services = new List<long>();
+        public long this[int index]
+        {
+            get
+            {
+                return services[index];
+            }
+        }
         public void AddServiceById(long i)
         {
             services.Add(i);
         }
-        public bool GetServiceById(long i)
+        public int CompareTo(TaskOrder p)
         {
-            return services.Contains(i);
+            return this.id.CompareTo(p.id);
         }
-
+        public void SortServicesById()
+        {
+            services.Sort();
+        }
     }
 }

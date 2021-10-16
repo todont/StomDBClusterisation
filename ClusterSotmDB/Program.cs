@@ -13,7 +13,6 @@ namespace ClusterSotmDB
     {
         static void Main(string[] args)
         {
-            // Получить объект Connection подключенный к DB.
             MySqlConnection conn = DBUtils.GetDBConnection();
             conn.Open();
             try
@@ -27,9 +26,7 @@ namespace ClusterSotmDB
             }
             finally
             {
-                // Закрыть соединение.
                 conn.Close();
-                // Уничтожить объект, освободить ресурс.
                 conn.Dispose();
             }
             Console.Read();
@@ -67,6 +64,7 @@ namespace ClusterSotmDB
                     }
                 }
             }
+            //алгоритм, но сначал подумать над посдчетом высоты
         }
     }
 }
