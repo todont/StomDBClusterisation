@@ -35,5 +35,9 @@ namespace ClusterSotmDB
         {
             services.Sort();
         }
+        public int Len()
+        {
+            return services.Count;
+        }
     }
 }

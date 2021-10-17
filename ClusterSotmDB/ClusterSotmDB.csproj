@@ -152,6 +152,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cluster.cs" />
     <Compile Include="TaskOrder.cs" />
     <Compile Include="Utils\DBUtils.cs" />
     <Compile Include="Utils\DBConnection.cs" />

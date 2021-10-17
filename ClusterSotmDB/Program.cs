@@ -34,11 +34,7 @@ namespace ClusterSotmDB
         private static void QueryStomdb(MySqlConnection conn)
         {
             string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE from case_services WHERE ID_DOCTOR=207 ORDER BY ID_CASE ";
-
-            // Создать объект Command.
             MySqlCommand cmd = new MySqlCommand();
-
-            // Сочетать Command с Connection.
             cmd.Connection = conn;
             cmd.CommandText = sql;
             long prevCaseId = 0;
@@ -64,7 +60,11 @@ namespace ClusterSotmDB
                     }
                 }
             }
-            //алгоритм, но сначал подумать над посдчетом высоты
+        
+        }
+        private static double GlobalProfit(List<Cluster> clusters)
+        {
+
         }
     }
 }
