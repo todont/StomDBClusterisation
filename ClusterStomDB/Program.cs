@@ -121,19 +121,19 @@ namespace ClusterStomDB
                 MakeIter(clusters);
             }
             //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где длина шаблна меньше 2
-            clusters.Sort();
-            clusters.Reverse();
-            int j = 0;
-            for(int i = 0; i < clusters.Count(); i++)
-            {
-                if (clusters[i].Count() == 2)
-                {
-                    j = i;
-                    break;
-                }
-            }
-            
-            clusters.RemoveRange(j, clusters.Count - j);
+            //clusters.Sort();
+            //clusters.Reverse();
+            //int j = 0;
+            //for (int i = 0; i < clusters.Count(); i++)
+            //{
+            //    if (clusters[i].Count() == 2)
+            //    {
+            //        j = i;
+            //        break;
+            //    }
+            //}
+
+            //clusters.RemoveRange(j, clusters.Count - j);
             PrintResults(clusters);
 
         }
@@ -142,7 +142,7 @@ namespace ClusterStomDB
             SortedSet<long> moved = new SortedSet<long>();
             for (int i = 0; i < clusters.Count; i++)
             {
-                for (int j = 0; j < clusters[i].Count()-1; j++)
+                for (int j = 0; j < clusters[i].Count(); j++)
                 {
                     if (moved.Contains(clusters[i][j].id))
                     {
@@ -173,10 +173,6 @@ namespace ClusterStomDB
                             numberMax = k;
                             findMax = true;
                         }
-                        if (k == 7 && i == 3)
-                        {
-                            Console.WriteLine("NewProfit={0} c", newProfit);
-                        }
                     }
                     //Console.WriteLine("MaxProfit={0} c", maxProfit);
                     if (findMax == true)
@@ -187,11 +183,28 @@ namespace ClusterStomDB
                     else
                     {
                         clusters[i].AddOrder(tmp);
+                        //Console.WriteLine("BBMoved from {0} to {1} id={2} max profit = {3}", i, numberMax, tmp.id, maxProfit);
                     }
                     moved.Add(tmp.id);
                 }
+                
             }
             moved.Clear();
+            clusters.Sort();
+            clusters.Reverse();
+            int l = -1;
+            for (int i = 0; i < clusters.Count(); i++)
+            {
+                if (clusters[i].Count() == 0)
+                {
+                    l = i;
+                    break;
+                }
+            }
+            if (l > 0)
+            {
+                clusters.RemoveRange(l, clusters.Count - l);
+            }
             double p = GlobalProfit(clusters);
             Console.WriteLine("Global profit = {0}", p);
         }
