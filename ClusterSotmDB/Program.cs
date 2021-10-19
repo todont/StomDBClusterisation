@@ -7,7 +7,7 @@ using MySql.Data.MySqlClient;
 using System.Data.Common;
 
 
-namespace ClusterStomDB
+namespace ClusterStomatDB
 {
     class Program
     {
