@@ -5,80 +5,61 @@ using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 
-namespace ClusterSotmDB
+namespace ClusterStomDB
 {
-    class Cluster
+    class Cluster : IComparable<Cluster>
     {
         public double gradient { get; private set; } = 0;
         private SortedDictionary<long,int> ordersTable = new SortedDictionary<long,int>();
         private List<TaskOrder> orders = new List<TaskOrder>();
+        private static double r =0.5;
+        public void SetR(double i)
+        {
+            r = i;
+        }
         public int Count()
         {
             return orders.Count;
         }
-        public double TryAddOrder(TaskOrder o,double deltaRemove)//добавим профиль доктора и умножение на k
+        public int CompareTo(Cluster p)
         {
-            double oldProfit = gradient;
-            double newProfit = oldProfit;
-            for(int i = 0;i<o.Len();i++)
-            {
-                if (ordersTable.ContainsKey(o[i]))
-                {
-                    ordersTable[o[i]]++;
-                }
-                else
-                {
-                    ordersTable.Add(o[i], 1);
-                }
-            }
-            newProfit = this.RecalculateProfit();
-            if (newProfit - oldProfit - deltaRemove > 0.000001)
-            {
-                //действия с табличкой
-                orders.Add(o);
-                gradient = newProfit;
-                return oldProfit - newProfit;
-            }
-            else
-            {
-                for (int i = 0; i < o.Len(); i++)
-                {
-                    if (ordersTable[o[i]] == 1)
-                    {
-                        ordersTable.Remove(o[i]);
-                    }
-                    else
-                    {
-                        ordersTable[o[i]]--;
-                    }
-                }
-            }
-            return 0;
+            return this.Count().CompareTo(p.Count());
         }
-        private double RecalculateProfit()
+        public void Print()
         {
+            orders.Sort();
+
+            Console.WriteLine("==================================");
+            foreach(TaskOrder o in orders)
+            {
+                o.Print();
+            }
+            //Console.ForegroundColor = ConsoleColor.DarkCyan;
+            Console.WriteLine("==================================\n");
+
+        }
+        public TaskOrder this[int index]
+        {
+            get
+            {
+                return orders[index];
+            }
+        }
+        private double RecalculateGradient()
+        {
+             
             gradient = 0;
+            if (orders.Count == 0) return 0;
             foreach (int t in ordersTable.Values)
             {
-                double k = 1.0;//временно, потом тут будет коэффициент услуги по докторам при обучении
+                double k = 1.0;//временно, потом тут будет коэффициент услуги по докторам при обучении алгоритма
                 gradient = gradient + k * t;
             }
-            return gradient/(double)ordersTable.Count;
+            gradient = gradient / (double)ordersTable.Count / (double)ordersTable.Count;
+            return gradient / (double)ordersTable.Count / Math.Pow((double)ordersTable.Count,r);
         }
-        public double CalculateRemoveDelta(TaskOrder o)
+        public void AddOrder(TaskOrder o)
         {
-            for (int i = 0; i < o.Len(); i++)
-            {
-                if (ordersTable[o[i]] == 1)
-                {
-                    ordersTable.Remove(o[i]);
-                }
-                else
-                {
-                    ordersTable[o[i]]--;
-                }
-            }
-            double newProfit = this.RecalculateProfit();
             for (int i = 0; i < o.Len(); i++)
             {
                 if (ordersTable.ContainsKey(o[i]))
@@ -90,7 +71,8 @@ namespace ClusterSotmDB
                     ordersTable.Add(o[i], 1);
                 }
             }
-            return gradient - newProfit;
+            orders.Add(o);
+            gradient = RecalculateGradient();
         }
         public void RemoveOrder(TaskOrder o)
         {
@@ -105,8 +87,24 @@ namespace ClusterSotmDB
                     ordersTable[o[i]]--;
                 }
             }
-            gradient = RecalculateProfit();
             orders.Remove(o);
+            gradient = RecalculateGradient(); 
+        }
+        public double CalculateAddDelta(TaskOrder o)
+        {
+            Console.WriteLine("OldGradient={0}", gradient);
+            this.AddOrder(o);
+            double newProfit = this.RecalculateGradient();
+            Console.WriteLine("RecGradient={0}", newProfit);
+            this.RemoveOrder(o);
+            return newProfit - gradient;
+        }
+        public double CalculateRemoveDelta(TaskOrder o)
+        {
+            this.RemoveOrder(o);
+            double newProfit = this.RecalculateGradient();
+            this.AddOrder(o);
+            return newProfit - gradient;
         }
     }
 }

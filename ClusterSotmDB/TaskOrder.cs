@@ -5,9 +5,9 @@ using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 
-namespace ClusterSotmDB
+namespace ClusterStomDB
 {
-    class TaskOrder : IComparable<TaskOrder>
+    class TaskOrder : IComparable<TaskOrder>, IEquatable<TaskOrder>
     {
         public readonly long id;
         public TaskOrder(long i, long j)
@@ -24,12 +24,23 @@ namespace ClusterSotmDB
             }
         }
         public void AddServiceById(long i)
-        {
+        {   
+            if(!services.Contains(i))
             services.Add(i);
         }
         public int CompareTo(TaskOrder p)
         {
             return this.id.CompareTo(p.id);
+        }
+        public bool Equals(TaskOrder other)
+        {
+            if (other == null)
+                return false;
+
+            if (this.id == other.id)
+                return true;
+            else
+                return false;
         }
         public void SortServicesById()
         {
@@ -38,6 +49,19 @@ namespace ClusterSotmDB
         public int Len()
         {
             return services.Count;
+        }
+        public void Print()
+        {
+            Console.ForegroundColor = ConsoleColor.Cyan;
+            Console.Write("{");
+            for(int i = 0; i<services.Count-1;i++)
+            {   
+                Console.Write("{0}, ",services[i]);
+            }
+            Console.Write("{0}", services[services.Count - 1]);
+            Console.Write("} ");
+            Console.ResetColor();
+            Console.WriteLine("id = {0}", id);
         }
     }
 }
