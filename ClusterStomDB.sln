@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.30413.136
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClusterStomatDB", "ClusterSotmDB\ClusterStomatDB.csproj", "{A200004F-99A1-4DD5-8C65-A27F0822798C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClusterStomDB", "ClusterStomDB\ClusterStomDB.csproj", "{A200004F-99A1-4DD5-8C65-A27F0822798C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +20,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {CA98660D-26EE-4778-854F-05B1542B5B0C}
+		SolutionGuid = {845DB408-C645-4F3F-A084-ECD7A04A01A6}
 	EndGlobalSection
 EndGlobal

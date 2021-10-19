@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 
-namespace ClusterStomatDB
+namespace ClusterStomDB
 {
     class TaskOrder : IComparable<TaskOrder>, IEquatable<TaskOrder>
     {
