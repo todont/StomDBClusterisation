@@ -17,10 +17,6 @@ namespace ClusterStomDB
                 serv.Add(i);
             }
             private List<long> serv = new List<long>();
-            public void Print()
-            {
-                    Console.WriteLine("Temp.Len={0} ", serv.Count());
-            }
         }
         public readonly int id = 0;
         private List<Template> templates = new List<Template>();
@@ -33,8 +29,7 @@ namespace ClusterStomDB
             {
                 templates.Add(MakeTemplateFromCluster(c));
             }
-            Console.WriteLine("\nDotor_ID={0} Number of temlates = {1}", this.id, templates.Count());
-            foreach (Template temp in templates) temp.Print();
+            Console.WriteLine("\nDotor_ID={0} NOC={3} Number of temlates = {1} number of orders = {2}", this.id, templates.Count(),orders.Count(),clusters.Count());
         }
         private List<TaskOrder> orders = new List<TaskOrder>();
         private Template MakeTemplateFromCluster(Cluster c)
@@ -152,13 +147,13 @@ namespace ClusterStomDB
             {
                 if (!MakeIter()) break;
             }
-            //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где ширина шаблна меньше 2
+            //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где ширина шаблна меньше 2, нужно попробовать отпиливать, пока не сстанет меньше 25.
             this.clusters.Sort();
             this.clusters.Reverse();
             int j = 0;
             for (int i = 0; i < this.clusters.Count(); i++)
             {
-                if (this.clusters[i].OrdersCount() == 3)
+                if (this.clusters[i].OrdersCount() == 2)
                 {
                     j = i;
                     break;
