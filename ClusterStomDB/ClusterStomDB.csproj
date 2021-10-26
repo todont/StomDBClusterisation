@@ -152,6 +152,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Doctor.cs" />
     <Compile Include="UtilConst.cs" />
     <Compile Include="Cluster.cs" />
     <Compile Include="TaskOrder.cs" />

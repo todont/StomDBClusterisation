@@ -17,13 +17,17 @@ namespace ClusterStomDB
         {
             r = i;
         }
-        public int Count()
+        public SortedDictionary<long, int> GetClusterTable()
+        {
+            return ordersTable;
+        }
+        public int OrdersCount()
         {
             return orders.Count;
         }
         public int CompareTo(Cluster p)
         {
-            return this.Count().CompareTo(p.Count());
+            return this.OrdersCount().CompareTo(p.OrdersCount());
         }
         public void Print()
         {
