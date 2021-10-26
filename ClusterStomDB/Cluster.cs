@@ -12,7 +12,7 @@ namespace ClusterStomDB
         public double gradient { get; private set; } = 0;
         private SortedDictionary<long,int> ordersTable = new SortedDictionary<long,int>();
         private List<TaskOrder> orders = new List<TaskOrder>();
-        private static double r =0.25;
+        private static double r = 0.2;
         public void SetR(double i)
         {
             r = i;

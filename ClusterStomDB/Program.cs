@@ -17,7 +17,28 @@ namespace ClusterStomDB
             conn.Open();
             try
             {
-                QueryStomdb(conn);
+                string sql = "SELECT distinct ID_Doctor FROM stomadb.case_services ";
+                MySqlCommand cmd = new MySqlCommand();
+                cmd.Connection = conn;
+                cmd.CommandText = sql;
+                List<int> ids = new List<int>();
+                using (DbDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                            ids.Add(reader.GetInt32(0));
+                    }
+                }
+                //разобрать функции на более мелкие функции(clopeMaker
+                List<Task> taskList = new List<Task>();
+                Dictionary<int, List<TaskOrder>> doctors = new Dictionary<int, List<TaskOrder>>();
+                foreach(int i in ids) {
+                    if (!InitListByID(doctors, conn, i)) continue;
+                    Task task = Task.Factory.StartNew(() => MakeTemplate(doctors[i], i));
+                    taskList.Add(task);
+                }
+                Task.WaitAll(taskList.ToArray());
             }
             catch (Exception e)
             {
@@ -31,40 +52,47 @@ namespace ClusterStomDB
             }
             Console.Read();
         }
-        private static void QueryStomdb(MySqlConnection conn)
-        {
-            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE from case_services WHERE ID_DOCTOR=207 ORDER BY ID_CASE desc ";
+        private static bool InitListByID(Dictionary<int,List<TaskOrder>> doctors,MySqlConnection conn, int id)
+        { 
+            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE from case_services WHERE ID_DOCTOR=" + id.ToString() + " ORDER BY ID_CASE desc limit 5000";
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
             cmd.CommandText = sql;
             long prevCaseId = 0;
-            List<Cluster> clusters = new List<Cluster>();
-            List<TaskOrder> cases207 = new List<TaskOrder>();
-    
+            List<TaskOrder> cases = new List<TaskOrder>();
             using (DbDataReader reader = cmd.ExecuteReader())
             {
                 if (reader.HasRows)
                 {
-                    int i = 0;
-                    while (reader.Read() && i<10000)
+                    while (reader.Read())
                     {
                         long currCaseId = reader.GetInt64(1);
-                        if (currCaseId!=prevCaseId || prevCaseId==0)
+                        if (currCaseId != prevCaseId || prevCaseId == 0)
                         {
-                            TaskOrder t = new TaskOrder (currCaseId, reader.GetInt64(2));
-                            cases207.Add(t);
+                            TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2));
+                            cases.Add(t);
                         }
                         else
                         {
-                            cases207[cases207.Count - 1].AddServiceById(reader.GetInt64(2));
+                            cases[cases.Count - 1].AddServiceById(reader.GetInt64(2));
                         }
                         prevCaseId = currCaseId;
-                        i++;
                     }
                 }
             }
+            if (cases.Count() > 0)
+            {
+                doctors.Add(id, cases);
+                return true;
+            }
+            return false;
+        }
+        private static void MakeTemplate(List<TaskOrder> cases, int id)//рразобраться с мейном и не мейно, что и куда
+        {
+
+            List<Cluster> clusters = new List<Cluster>();
             //процесс инициализации
-            foreach(TaskOrder t in cases207)
+            foreach (TaskOrder t in cases)
             {
                 t.SortServicesById();
                 Cluster tmp = new Cluster();
@@ -94,11 +122,9 @@ namespace ClusterStomDB
                 {
                     tmp.AddOrder(t);
                     clusters.Add(tmp);
-                    double k = GlobalProfit(clusters);
-                   // Console.WriteLine("Global profit = {0}\n================\n", k);
                     continue;
                 }
-                if (addProfitECMax-addProfitNC>0.000001)
+                if (addProfitECMax-addProfitNC>UtilConst.eps)
                 {
                     clusters[max].AddOrder(t);
                 }
@@ -107,38 +133,35 @@ namespace ClusterStomDB
                     tmp.AddOrder(t);
                     clusters.Add(tmp);
                 }
-               // double p = GlobalProfit(clusters);
-               // Console.WriteLine("Global profit = {0}\n================\n", p);
             }
             //итерации, причем создадим отдельно список мувов
-            double p = GlobalProfit(clusters);
-            Console.WriteLine("Global profit before iteration = {0}", p);
+            //double p = GlobalProfit(clusters);
+           // Console.WriteLine("Global profit before iteration = {0}\n", p);
             for (int i = 0; i < 10; i++)
             {
-                Console.ForegroundColor = ConsoleColor.Blue;
-                Console.WriteLine("Iteration {0}:",i);
-                Console.ResetColor();
-                MakeIter(clusters);
+                if (!MakeIter(clusters)) break;
             }
-            //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где длина шаблна меньше 2
-            //clusters.Sort();
-            //clusters.Reverse();
-            //int j = 0;
-            //for (int i = 0; i < clusters.Count(); i++)
-            //{
-            //    if (clusters[i].Count() == 2)
-            //    {
-            //        j = i;
-            //        break;
-            //    }
-            //}
+            //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где ширина шаблна меньше 2
+            clusters.Sort();
+            clusters.Reverse();
+            int j = 0;
+            for (int i = 0; i < clusters.Count(); i++)
+            {
+                if (clusters[i].Count() == 3)
+                {
+                    j = i;
+                    break;
+                }
+            }
 
-            //clusters.RemoveRange(j, clusters.Count - j);
-            PrintResults(clusters);
+            clusters.RemoveRange(j, clusters.Count - j);
+            Console.WriteLine("DOCTOR_ID={0} Clusters.Count()={1}",id,clusters.Count());
+            //PrintResults(clusters);
 
         }
-        private static void MakeIter(List<Cluster> clusters)
+        private static bool MakeIter(List<Cluster> clusters)
         {
+            bool ismoved = false;
             SortedSet<long> moved = new SortedSet<long>();
             for (int i = 0; i < clusters.Count; i++)
             {
@@ -174,16 +197,15 @@ namespace ClusterStomDB
                             findMax = true;
                         }
                     }
-                    //Console.WriteLine("MaxProfit={0} c", maxProfit);
                     if (findMax == true)
                     {
                         clusters[numberMax].AddOrder(tmp);
-                        Console.WriteLine("aaMoved from {0} to {1} id={2} max profit = {3}", i, numberMax, tmp.id,maxProfit);
+                       // Console.WriteLine("Moved from {0} to {1} id={2} max profit = {3}", i, numberMax, tmp.id,maxProfit);
+                        ismoved = true;
                     }
                     else
                     {
-                        clusters[i].AddOrder(tmp);
-                        //Console.WriteLine("BBMoved from {0} to {1} id={2} max profit = {3}", i, numberMax, tmp.id, maxProfit);
+                        clusters[i].AddOrder(tmp);    
                     }
                     moved.Add(tmp.id);
                 }
@@ -206,7 +228,8 @@ namespace ClusterStomDB
                 clusters.RemoveRange(l, clusters.Count - l);
             }
             double p = GlobalProfit(clusters);
-            Console.WriteLine("Global profit = {0}", p);
+           // Console.WriteLine("Global profit = {0}\n", p);
+            return ismoved;
         }
         private static double GlobalProfit(List<Cluster> clusters)
         {
