@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Data.Common;
 using MySql.Data.MySqlClient;
+using System.IO;
 
 namespace ClusterStomDB
 {
@@ -16,11 +17,83 @@ namespace ClusterStomDB
             {
                 serv.Add(i);
             }
-            private List<long> serv = new List<long>();
+            public List<long> serv = new List<long>();
         }
         public readonly int id = 0;
+        private string name = "";
+        private static Dictionary<long, string> price = new Dictionary<long, string>();
+        private static Dictionary<long, string> pricebzp = new Dictionary<long, string>();
         private List<Template> templates = new List<Template>();
         private List<Cluster> clusters = new List<Cluster>();
+        private void InitPrice(MySqlConnection conn)
+        {
+            if (price.Count() != 0) return;
+            string sql = "SELECT ID,NAME FROM stomadb.price";
+            MySqlCommand cmd = new MySqlCommand();
+            cmd.Connection = conn;
+            cmd.CommandText = sql;
+            using (DbDataReader reader = cmd.ExecuteReader())
+            {
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                        price.Add(reader.GetInt64(0), reader.GetString(1));
+                }
+            }
+        }
+        private void InitPriceBZP(MySqlConnection conn)
+        {
+            if (price.Count() != 0) return;
+            string sql = "SELECT ID,NAME FROM stomadb.price_orto_soc";
+            MySqlCommand cmd = new MySqlCommand();
+            cmd.Connection = conn;
+            cmd.CommandText = sql;
+            using (DbDataReader reader = cmd.ExecuteReader())
+            {
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                        price.Add(reader.GetInt64(0), reader.GetString(1));
+                }
+            }
+        }
+        public void PrintDoctorTemp()
+        {
+            using (FileStream fs = new FileStream("test.txt", FileMode.Append)) {
+
+                StreamWriter w = new StreamWriter(fs, Encoding.Default);
+                Console.WriteLine("===============================================================");
+                w.WriteLine("===============================================================");
+                Console.WriteLine("{3}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
+                w.WriteLine("Doctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count());
+                for (int i = 0; i < templates.Count(); i++)
+                {
+                    Console.WriteLine("\nШаблон {0}: ", i + 1);
+                    w.WriteLine("\nШаблон {0}: ", i + 1);
+                    int counter = 0;
+                    foreach (long s in templates[i].serv)
+                    {
+                        counter++;
+                        if (price.ContainsKey(s))
+                        {
+                            Console.WriteLine("{1}) {0} id({2})", price[s], counter,s);
+                            w.WriteLine("{1}) {0}", price[s], counter);
+                        }
+
+
+                        else
+                        {
+                            Console.WriteLine("Нет услуги с таким ID {0}", s);
+                            w.WriteLine("Нет услуги с таким ID {0}", s);
+                        }
+                    }
+                }
+            
+        
+            Console.WriteLine("\n===============================================================");
+            w.WriteLine("\n===============================================================");
+            }
+        }
         public void MakeTemplates()
         {
             //кластеризация
@@ -36,7 +109,7 @@ namespace ClusterStomDB
         {
             //Анализ кластера
             SortedDictionary<long, int> table = c.GetClusterTable();
-            var sortedTable = from entry in table where entry.Value> c.OrdersCount()*52/90 orderby entry.Value  descending select entry ;//доделаь
+            var sortedTable = from entry in table where entry.Value > c.OrdersCount()*50/90 orderby entry.Value  descending select entry ;//доделать
             Template tmp = new Template();
             foreach(KeyValuePair<long, int> l in sortedTable)
             {
@@ -48,11 +121,31 @@ namespace ClusterStomDB
         public Doctor(int i,MySqlConnection conn)
         {
             id = i;
+            this.InitPrice(conn);
+            this.InitPriceBZP(conn);
             this.InitByID(conn, i);
+            this.InitNameById(conn, i);
         }
+
+        private void InitNameById(MySqlConnection conn, int i)
+        {
+            string sql = "SELECT doctor_id,user_id,id,name FROM stomadb.doctor_spec inner join users on user_id=id where id=135;";
+            MySqlCommand cmd = new MySqlCommand();
+            cmd.Connection = conn;
+            cmd.CommandText = sql;
+            using (DbDataReader reader = cmd.ExecuteReader())
+            {
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                        this.name = reader.GetString(3);
+                }
+            }
+        }
+
         private void InitByID(MySqlConnection conn, int id)//инциализация доктора, потом пойдет создание шаблонов для него-же
         {
-            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE from case_services WHERE ID_DOCTOR=" + id.ToString() + " ORDER BY ID_CASE desc limit 5000";
+            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER from case_services WHERE ID_ORDER>0 and ID_DOCTOR=" + id.ToString() + " ORDER BY ID_ORDER limit 1000";
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
             cmd.CommandText = sql;
@@ -64,7 +157,7 @@ namespace ClusterStomDB
                 {
                     while (reader.Read())
                     {
-                        long currCaseId = reader.GetInt64(1);
+                        long currCaseId = reader.GetInt64(3);
                         if (currCaseId != prevCaseId || prevCaseId == 0)
                         {
                             TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2));
