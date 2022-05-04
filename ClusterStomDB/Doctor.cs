@@ -13,6 +13,15 @@ namespace ClusterStomDB
     {
         private class Template
         {
+            private bool isBzp = false;
+            public Template (bool bzp)
+            {
+                this.isBzp = bzp;
+            }
+            public bool GetTemlateType()
+            {
+                return this.isBzp;
+            }
             public void Add(long i)
             {
                 serv.Add(i);
@@ -25,6 +34,7 @@ namespace ClusterStomDB
         private static Dictionary<long, string> pricebzp = new Dictionary<long, string>();
         private List<Template> templates = new List<Template>();
         private List<Cluster> clusters = new List<Cluster>();
+        private List<Cluster> clustersBZP = new List<Cluster>();
         private void InitPrice(MySqlConnection conn)
         {
             if (price.Count() != 0) return;
@@ -64,8 +74,8 @@ namespace ClusterStomDB
                 StreamWriter w = new StreamWriter(fs, Encoding.Default);
                 Console.WriteLine("===============================================================");
                 w.WriteLine("===============================================================");
-                Console.WriteLine("{3}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
-                w.WriteLine("Doctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count());
+                Console.WriteLine("{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
+                w.WriteLine("{2}\nDoctor ID = { 0 }  Количество шаблонов: { 1}\n", id, templates.Count(), this.name);
                 for (int i = 0; i < templates.Count(); i++)
                 {
                     Console.WriteLine("\nШаблон {0}: ", i + 1);
@@ -97,8 +107,16 @@ namespace ClusterStomDB
         public void MakeTemplates()
         {
             //кластеризация
-            this.MakeClusters();
+            this.MakeClusters(true);
+            clustersBZP = new List<Cluster>(clusters);
+            clusters = new List<Cluster>();
+
+            this.MakeClusters(false);
             foreach(Cluster c in this.clusters)
+            {
+                templates.Add(MakeTemplateFromCluster(c));
+            }
+            foreach (Cluster c in this.clustersBZP)
             {
                 templates.Add(MakeTemplateFromCluster(c));
             }
@@ -109,8 +127,8 @@ namespace ClusterStomDB
         {
             //Анализ кластера
             SortedDictionary<long, int> table = c.GetClusterTable();
-            var sortedTable = from entry in table where entry.Value > c.OrdersCount()*50/90 orderby entry.Value  descending select entry ;//доделать
-            Template tmp = new Template();
+            var sortedTable = from entry in table where entry.Value > c.OrdersCount()*80/90 orderby entry.Value  descending select entry ;//доделать
+            Template tmp = new Template(c.GetClusterType());
             foreach(KeyValuePair<long, int> l in sortedTable)
             {
                 tmp.Add(l.Key);
@@ -129,7 +147,7 @@ namespace ClusterStomDB
 
         private void InitNameById(MySqlConnection conn, int i)
         {
-            string sql = "SELECT doctor_id,user_id,id,name FROM stomadb.doctor_spec inner join users on user_id=id where id=135;";
+            string sql = "SELECT doctor_id,user_id,id,name FROM stomadb.doctor_spec inner join users on user_id=id where doctor_id="+ i.ToString();
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
             cmd.CommandText = sql;
@@ -145,7 +163,7 @@ namespace ClusterStomDB
 
         private void InitByID(MySqlConnection conn, int id)//инциализация доктора, потом пойдет создание шаблонов для него-же
         {
-            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER from case_services WHERE ID_ORDER>0 and ID_DOCTOR=" + id.ToString() + " ORDER BY ID_ORDER limit 1000";
+            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER,ID, orders.ID_DOCTOR, case_services.ID_DOCTOR, order_type from case_services inner join orders on id_order=ID WHERE ID_ORDER>0 and case_services.ID_DOCTOR=" + id.ToString() + " ORDER BY ID_ORDER ";
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
             cmd.CommandText = sql;
@@ -160,7 +178,7 @@ namespace ClusterStomDB
                         long currCaseId = reader.GetInt64(3);
                         if (currCaseId != prevCaseId || prevCaseId == 0)
                         {
-                            TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2));
+                            TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2),reader.GetInt64(7)>0);
                             cases.Add(t);
                         }
                         else
@@ -188,13 +206,14 @@ namespace ClusterStomDB
         //        return templates[index];
         //    }
         //}
-        private void MakeClusters()//рразобраться с мейном и не мейно, что и куда
+        private void MakeClusters(bool isBZP)//рразобраться с мейном и не мейно, что и куда
         {
             //процесс инициализации
             foreach (TaskOrder t in this.orders)
             {
+                if (t.GetOrderType()!=isBZP) continue;
                 t.SortServicesById();
-                Cluster tmp = new Cluster();
+                Cluster tmp = new Cluster(t.GetOrderType());
                 tmp.AddOrder(t);
                 this.clusters.Add(tmp);
                 double addProfitNC = GlobalProfit();

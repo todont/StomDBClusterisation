@@ -9,10 +9,19 @@ namespace ClusterStomDB
 {
     class Cluster : IComparable<Cluster>
     {
+        public Cluster(bool bzp)
+        {
+            this.isBZP = bzp;
+        }
+        public bool GetClusterType()
+        {
+            return this.isBZP;
+        }
         public double gradient { get; private set; } = 0;
         private SortedDictionary<long,int> ordersTable = new SortedDictionary<long,int>();
         private List<TaskOrder> orders = new List<TaskOrder>();
-        private static double r = 0.2;
+        private bool isBZP = false;
+        private static double r = 0.1;
         public void SetR(double i)
         {
             r = i;

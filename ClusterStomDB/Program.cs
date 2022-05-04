@@ -17,7 +17,7 @@ namespace ClusterStomDB
             conn.Open();
             try
             {
-                string sql = "SELECT distinct ID_Doctor FROM stomadb.case_services WHERE ID_DOCTOR>100 and ID_DOCTOR<154";
+                string sql = "SELECT distinct ID_Doctor FROM stomadb.case_services WHERE ID_DOCTOR>156 and ID_DOCTOR<158";
                 MySqlCommand cmd = new MySqlCommand();
                 cmd.Connection = conn;
                 cmd.CommandText = sql;
