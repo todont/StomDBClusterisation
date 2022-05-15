@@ -13,20 +13,29 @@ namespace ClusterStomDB
     {
         private class Template
         {
-            private bool isBzp = false;
-            public Template (bool bzp)
+            private int type = -1;
+            public Template (int bzp)
             {
-                this.isBzp = bzp;
+                this.type = bzp;
             }
-            public bool GetTemlateType()
+            public int GetTemplateType()
             {
-                return this.isBzp;
+                return this.type;
             }
             public void Add(long i)
             {
-                serv.Add(i);
+                services.Add(i);
             }
-            public List<long> serv = new List<long>();
+            public List<long> services = new List<long>();
+            override public string ToString()
+            {
+                string s = "";
+                foreach(long serv in services)
+                {
+                    s += serv.ToString() + "*";
+                }
+                return s;
+            }
         }
         public readonly int id = 0;
         private string name = "";
@@ -51,9 +60,19 @@ namespace ClusterStomDB
                 }
             }
         }
+        public void PushTempToDatabase(MySqlConnection conn)
+        {   
+            foreach(Template t in templates)
+            {
+                MySqlCommand cmd = new MySqlCommand();
+                cmd.Connection = conn;
+                cmd.CommandText = "INSERT INTO `stomadb`.`templates` (`template_type`,`id_doctor`,`template_services`) VALUES ('" + t.GetTemplateType().ToString() + "'," + this.id.ToString() + ",'" + t.ToString() + "');";
+                cmd.ExecuteNonQuery();
+            }
+        }
         private void InitPriceBZP(MySqlConnection conn)
         {
-            if (price.Count() != 0) return;
+            if (pricebzp.Count() != 0) return;
             string sql = "SELECT ID,NAME FROM stomadb.price_orto_soc";
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
@@ -63,34 +82,42 @@ namespace ClusterStomDB
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        price.Add(reader.GetInt64(0), reader.GetString(1));
+                        pricebzp.Add(reader.GetInt64(0), reader.GetString(1));
                 }
             }
         }
         public void PrintDoctorTemp()
-        {
-            using (FileStream fs = new FileStream("test.txt", FileMode.Append)) {
+        {   if(clusters.Count()==0) return;
+            using (FileStream fs = new FileStream("test2.txt", FileMode.Append)) {
 
                 StreamWriter w = new StreamWriter(fs, Encoding.Default);
                 Console.WriteLine("===============================================================");
                 w.WriteLine("===============================================================");
-                Console.WriteLine("{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
-                w.WriteLine("{2}\nDoctor ID = { 0 }  Количество шаблонов: { 1}\n", id, templates.Count(), this.name);
+                Console.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
+                w.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
+                Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны беспалтного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны беспалтного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                int j = 0;
                 for (int i = 0; i < templates.Count(); i++)
-                {
-                    Console.WriteLine("\nШаблон {0}: ", i + 1);
-                    w.WriteLine("\nШаблон {0}: ", i + 1);
+                {  
+                    if (templates[i].GetTemplateType()==0)
+                    {
+                        j++;
+                        continue;
+                    }
+                    Console.WriteLine("\nШаблон {0}: ", i + 1 - j);
+                    w.WriteLine("\nШаблон {0}: ", i + 1 - j);
                     int counter = 0;
-                    foreach (long s in templates[i].serv)
+                    foreach (long s in templates[i].services)
                     {
                         counter++;
-                        if (price.ContainsKey(s))
+
+                        if (pricebzp.ContainsKey(s))
                         {
-                            Console.WriteLine("{1}) {0} id({2})", price[s], counter,s);
-                            w.WriteLine("{1}) {0}", price[s], counter);
+                            Console.WriteLine("{1}) {0} id({2})", pricebzp[s], counter, s);
+                            w.WriteLine("{1}) {0} id({2})", pricebzp[s], counter, s);
+                            continue;
                         }
-
-
                         else
                         {
                             Console.WriteLine("Нет услуги с таким ID {0}", s);
@@ -98,20 +125,46 @@ namespace ClusterStomDB
                         }
                     }
                 }
-            
-        
-            Console.WriteLine("\n===============================================================");
+                Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны платного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны платного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                j = 0;
+                for (int i = 0; i < templates.Count(); i++)
+                {
+                    if (templates[i].GetTemplateType()==1) 
+                    {
+                        j++;
+                        continue;
+                    }
+                    Console.WriteLine("\nШаблон {0}: ", i + 1-j);
+                    w.WriteLine("\nШаблон {0}: ", i + 1-j);
+                    int counter = 0;
+                    foreach (long s in templates[i].services)
+                    {
+                        counter++;
+                        if (price.ContainsKey(s))
+                        {
+                            Console.WriteLine("{1}) {0} id({2})", price[s], counter, s);
+                            w.WriteLine("{1}) {0} id({2})", price[s], counter, s);
+                        }
+                        else
+                        {
+                            Console.WriteLine("Нет услуги с таким ID {0}", s);
+                            w.WriteLine("Нет услуги с таким ID {0}", s);
+                        }
+                    }
+                }
+                Console.WriteLine("\n===============================================================");
             w.WriteLine("\n===============================================================");
             }
         }
         public void MakeTemplates()
         {
             //кластеризация
-            this.MakeClusters(true);
+            this.MakeClusters(1);
             clustersBZP = new List<Cluster>(clusters);
             clusters = new List<Cluster>();
 
-            this.MakeClusters(false);
+            this.MakeClusters(0);
             foreach(Cluster c in this.clusters)
             {
                 templates.Add(MakeTemplateFromCluster(c));
@@ -120,6 +173,7 @@ namespace ClusterStomDB
             {
                 templates.Add(MakeTemplateFromCluster(c));
             }
+            if(orders.Count()>0)
             Console.WriteLine("\nDotor_ID={0} NOC={3} Number of temlates = {1} number of orders = {2}", this.id, templates.Count(),orders.Count(),clusters.Count());
         }
         private List<TaskOrder> orders = new List<TaskOrder>();
@@ -178,7 +232,7 @@ namespace ClusterStomDB
                         long currCaseId = reader.GetInt64(3);
                         if (currCaseId != prevCaseId || prevCaseId == 0)
                         {
-                            TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2),reader.GetInt64(7)>0);
+                            TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2),reader.GetInt32(7));
                             cases.Add(t);
                         }
                         else
@@ -206,7 +260,7 @@ namespace ClusterStomDB
         //        return templates[index];
         //    }
         //}
-        private void MakeClusters(bool isBZP)//рразобраться с мейном и не мейно, что и куда
+        private void MakeClusters(int isBZP)//рразобраться с мейном и не мейно, что и куда
         {
             //процесс инициализации
             foreach (TaskOrder t in this.orders)

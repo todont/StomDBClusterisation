@@ -10,14 +10,14 @@ namespace ClusterStomDB
     class TaskOrder : IComparable<TaskOrder>, IEquatable<TaskOrder>
     {
         public readonly long id;
-        private bool isBZP = false;
-        public TaskOrder(long i, long j, bool bzp)
+        private int type = -1;
+        public TaskOrder(long i, long j, int bzp)
         {
-            this.isBZP = bzp;
+            this.type = bzp;
             id = i;
             services = new List<long> { j };
         }
-        public bool GetOrderType() { return isBZP; }
+        public int GetOrderType() { return type; }
         private List<long> services = new List<long>();
         public long this[int index]
         {

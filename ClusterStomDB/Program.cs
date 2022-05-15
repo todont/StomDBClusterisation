@@ -17,7 +17,7 @@ namespace ClusterStomDB
             conn.Open();
             try
             {
-                string sql = "SELECT distinct ID_Doctor FROM stomadb.case_services WHERE ID_DOCTOR>156 and ID_DOCTOR<158";
+                string sql = "SELECT distinct ID_Doctor FROM stomadb.case_services WHERE ID_DOCTOR>0 and ID_DOCTOR<500";
                 MySqlCommand cmd = new MySqlCommand();
                 cmd.Connection = conn;
                 cmd.CommandText = sql;
@@ -50,7 +50,14 @@ namespace ClusterStomDB
                 {
                     d.PrintDoctorTemp();
                 }
-
+                cmd.CommandText = "drop table templates";
+                cmd.ExecuteNonQuery();
+                cmd.CommandText = "CREATE TABLE templates ( Id INT AUTO_INCREMENT PRIMARY KEY, template_type INT DEFAULT - 1, id_doctor INT DEFAULT - 1, template_name VARCHAR(30),template_services VARCHAR(100) NOT NULL ); ";
+                cmd.ExecuteNonQuery();
+                foreach (Doctor d in doctors)
+                {   
+                    d.PushTempToDatabase(conn);                   
+                }
             }
             catch (Exception e)
             {
