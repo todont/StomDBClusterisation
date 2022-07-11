@@ -14,6 +14,30 @@ namespace ClusterStomDB
         private class Template
         {
             private int type = -1;
+            public string name { get; private set; }
+            public void AssignName()
+            {
+                if (services.Count() == 0) return;
+                long keyservice = services[0];
+                if (this.type == 0)
+                {
+                    foreach (long s in services)
+                    {
+                        if (price[s].Value >= price[keyservice].Value)
+                            keyservice = s;
+                    }
+                    this.name = price[keyservice].Key;
+                }
+                if (this.type == 1) 
+                { 
+                    foreach (long s in services)
+                    {
+                        if (pricebzp[s].Value >= pricebzp[keyservice].Value)
+                            keyservice = s;
+                    }
+                    this.name = pricebzp[keyservice].Key;
+                }
+            }
             public Template (int bzp)
             {
                 this.type = bzp;
@@ -39,15 +63,15 @@ namespace ClusterStomDB
         }
         public readonly int id = 0;
         private string name = "";
-        private static Dictionary<long, string> price = new Dictionary<long, string>();
-        private static Dictionary<long, string> pricebzp = new Dictionary<long, string>();
+        private static Dictionary<long, KeyValuePair<string, double>> price = new Dictionary<long, KeyValuePair<string, double>>();
+        private static Dictionary<long, KeyValuePair<string, double>> pricebzp = new Dictionary<long, KeyValuePair<string, double>>();
         private List<Template> templates = new List<Template>();
         private List<Cluster> clusters = new List<Cluster>();
         private List<Cluster> clustersBZP = new List<Cluster>();
         private void InitPrice(MySqlConnection conn)
         {
             if (price.Count() != 0) return;
-            string sql = "SELECT ID,NAME FROM stomadb.price";
+            string sql = "SELECT ID,NAME,COST FROM stomadb.price";
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
             cmd.CommandText = sql;
@@ -56,24 +80,25 @@ namespace ClusterStomDB
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        price.Add(reader.GetInt64(0), reader.GetString(1));
+                        price.Add(reader.GetInt64(0), new KeyValuePair<string, double>(reader.GetString(1),reader.GetDouble(2)));
                 }
             }
         }
         public void PushTempToDatabase(MySqlConnection conn)
         {   
             foreach(Template t in templates)
-            {
+            {   if (t.services.Count() == 0) continue;
                 MySqlCommand cmd = new MySqlCommand();
                 cmd.Connection = conn;
-                cmd.CommandText = "INSERT INTO `stomadb`.`templates` (`template_type`,`id_doctor`,`template_services`) VALUES ('" + t.GetTemplateType().ToString() + "'," + this.id.ToString() + ",'" + t.ToString() + "');";
+                t.AssignName();
+                cmd.CommandText = "INSERT INTO `stomadb`.`templates` (`template_type`,`id_doctor`,`template_name`,`template_services`) VALUES ('" + t.GetTemplateType().ToString() + "'," + this.id.ToString() + ",'" +t.name+"','" + t.ToString() + "');";
                 cmd.ExecuteNonQuery();
             }
         }
         private void InitPriceBZP(MySqlConnection conn)
         {
             if (pricebzp.Count() != 0) return;
-            string sql = "SELECT ID,NAME FROM stomadb.price_orto_soc";
+            string sql = "SELECT ID,NAME,COST FROM stomadb.price_orto_soc";
             MySqlCommand cmd = new MySqlCommand();
             cmd.Connection = conn;
             cmd.CommandText = sql;
@@ -82,7 +107,7 @@ namespace ClusterStomDB
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        pricebzp.Add(reader.GetInt64(0), reader.GetString(1));
+                        pricebzp.Add(reader.GetInt64(0), new KeyValuePair<string, double>(reader.GetString(1), reader.GetDouble(2)));
                 }
             }
         }
@@ -114,8 +139,8 @@ namespace ClusterStomDB
 
                         if (pricebzp.ContainsKey(s))
                         {
-                            Console.WriteLine("{1}) {0} id({2})", pricebzp[s], counter, s);
-                            w.WriteLine("{1}) {0} id({2})", pricebzp[s], counter, s);
+                            Console.WriteLine("{1}) {0} id({2})", pricebzp[s].Key, counter, s);
+                            w.WriteLine("{1}) {0} id({2})", pricebzp[s].Key, counter, s);
                             continue;
                         }
                         else
@@ -143,8 +168,8 @@ namespace ClusterStomDB
                         counter++;
                         if (price.ContainsKey(s))
                         {
-                            Console.WriteLine("{1}) {0} id({2})", price[s], counter, s);
-                            w.WriteLine("{1}) {0} id({2})", price[s], counter, s);
+                            Console.WriteLine("{1}) {0} id({2})", price[s].Key, counter, s);
+                            w.WriteLine("{1}) {0} id({2})", price[s].Key, counter, s);
                         }
                         else
                         {

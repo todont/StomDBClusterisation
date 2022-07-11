@@ -30,6 +30,27 @@ namespace ClusterStomDB
                             ids.Add(reader.GetInt32(0));
                     }
                 }
+                sql = "SELECT id,code FROM stomadb.price;";
+                cmd = new MySqlCommand();
+                Dictionary<int, string> bzp = new Dictionary<int, string>();
+                Dictionary<int, string> pzp = new Dictionary<int, string>();
+                using (DbDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                            pzp.Add(reader.GetInt32(0), reader.GetString(1));
+                    }
+                }
+                sql = "SELECT id,code FROM stomadb.price_orto_soc;";
+                cmd = new MySqlCommand();
+                using (DbDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                            bzp.Add(reader.GetInt32(0), reader.GetString(1));
+                    }
 
                 List<Task> taskList = new List<Task>();
                 List<Doctor> doctors = new List<Doctor>();
@@ -50,9 +71,9 @@ namespace ClusterStomDB
                 {
                     d.PrintDoctorTemp();
                 }
-                cmd.CommandText = "drop table templates";
+                cmd.CommandText = "drop table templates";//пренести к доктору
                 cmd.ExecuteNonQuery();
-                cmd.CommandText = "CREATE TABLE templates ( Id INT AUTO_INCREMENT PRIMARY KEY, template_type INT DEFAULT - 1, id_doctor INT DEFAULT - 1, template_name VARCHAR(30),template_services VARCHAR(100) NOT NULL ); ";
+                cmd.CommandText = "CREATE TABLE templates ( Id INT AUTO_INCREMENT PRIMARY KEY, template_type INT DEFAULT - 1, id_doctor INT DEFAULT - 1, template_name VARCHAR(1024),template_services VARCHAR(1024) NOT NULL ); ";
                 cmd.ExecuteNonQuery();
                 foreach (Doctor d in doctors)
                 {   
