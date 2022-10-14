@@ -1,123 +1,110 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MySql.Data.MySqlClient;
 
 namespace ClusterStomDB
 {
-    class Cluster : IComparable<Cluster>
+    internal class Cluster : IComparable<Cluster>
     {
+        public double Gradient { get; private set; } = 0;
+        private SortedDictionary<string, int> OrdersTable = new SortedDictionary<string, int>();
+        private List<TaskOrder> Orders = new List<TaskOrder>();
+        private int type = -1;
+        private static double r = 0.1;
         public Cluster(int bzp)
         {
-            this.type = bzp;
+            type = bzp;
         }
         public int GetClusterType()
         {
-            return this.type;
+            return type;
         }
-        public double gradient { get; private set; } = 0;
-        private SortedDictionary<long,int> ordersTable = new SortedDictionary<long,int>();
-        private List<TaskOrder> orders = new List<TaskOrder>();
-        private int type = -1;
-        private static double r = 0.1;
         public void SetR(double i)
         {
             r = i;
         }
-        public SortedDictionary<long, int> GetClusterTable()
+        public SortedDictionary<string, int> GetClusterTable()
         {
-            return ordersTable;
+            return OrdersTable;
         }
         public int OrdersCount()
         {
-            return orders.Count;
+            return Orders.Count;
         }
         public int CompareTo(Cluster p)
         {
-            return this.OrdersCount().CompareTo(p.OrdersCount());
+            return OrdersCount().CompareTo(p.OrdersCount());
         }
         public void Print()
         {
-            orders.Sort();
+            Orders.Sort();
 
             Console.WriteLine("==================================");
-            foreach(TaskOrder o in orders)
+            foreach (TaskOrder o in Orders)
             {
                 o.Print();
             }
-            //Console.ForegroundColor = ConsoleColor.DarkCyan;
             Console.WriteLine("==================================\n");
-
         }
-        public TaskOrder this[int index]
-        {
-            get
-            {
-                return orders[index];
-            }
-        }
+        public TaskOrder this[int index] => Orders[index];
         private double RecalculateGradient()
         {
-             
-            gradient = 0;
-            if (orders.Count == 0) return 0;
-            foreach (int t in ordersTable.Values)
+            Gradient = 0;
+            if (Orders.Count == 0) return 0;
+            foreach (int t in OrdersTable.Values)
             {
                 double k = 1.0;//временно, потом тут будет коэффициент услуги по докторам при обучении алгоритма
-                gradient = gradient + k * t;
+                Gradient += k * t;
             }
-            gradient = gradient / (double)ordersTable.Count / (double)ordersTable.Count;
-            return gradient / (double)ordersTable.Count / Math.Pow((double)ordersTable.Count,r);
+            Gradient = Gradient / (double)OrdersTable.Count / (double)OrdersTable.Count;
+            return Gradient / (double)OrdersTable.Count / Math.Pow((double)OrdersTable.Count, r);
         }
         public void AddOrder(TaskOrder o)
         {
             for (int i = 0; i < o.Len(); i++)
             {
-                if (ordersTable.ContainsKey(o[i]))
+                if (OrdersTable.ContainsKey(o[i]))
                 {
-                    ordersTable[o[i]]++;
+                    OrdersTable[o[i]]++;
                 }
                 else
                 {
-                    ordersTable.Add(o[i], 1);
+                    OrdersTable.Add(o[i], 1);
                 }
             }
-            orders.Add(o);
-            gradient = RecalculateGradient();
+            Orders.Add(o);
+            Gradient = RecalculateGradient();
         }
         public void RemoveOrder(TaskOrder o)
         {
             for (int i = 0; i < o.Len(); i++)
             {
-                if (ordersTable[o[i]] == 1)
+                if (OrdersTable[o[i]] == 1)
                 {
-                    ordersTable.Remove(o[i]);
+                    OrdersTable.Remove(o[i]);
                 }
                 else
                 {
-                    ordersTable[o[i]]--;
+                    OrdersTable[o[i]]--;
                 }
             }
-            orders.Remove(o);
-            gradient = RecalculateGradient(); 
+            Orders.Remove(o);
+            Gradient = RecalculateGradient();
         }
         public double CalculateAddDelta(TaskOrder o)
         {
-            Console.WriteLine("OldGradient={0}", gradient);
-            this.AddOrder(o);
-            double newProfit = this.RecalculateGradient();
+            Console.WriteLine("OldGradient={0}", Gradient);
+            AddOrder(o);
+            double newProfit = RecalculateGradient();
             Console.WriteLine("RecGradient={0}", newProfit);
-            this.RemoveOrder(o);
-            return newProfit - gradient;
+            RemoveOrder(o);
+            return newProfit - Gradient;
         }
         public double CalculateRemoveDelta(TaskOrder o)
         {
-            this.RemoveOrder(o);
-            double newProfit = this.RecalculateGradient();
-            this.AddOrder(o);
-            return newProfit - gradient;
+            RemoveOrder(o);
+            double newProfit = RecalculateGradient();
+            AddOrder(o);
+            return newProfit - Gradient;
         }
     }
 }

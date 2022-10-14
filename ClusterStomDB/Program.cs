@@ -2,15 +2,14 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
-using System.Linq;
 using System.Threading.Tasks;
 
 
 namespace ClusterStomDB
 {
-    class Program
+    public class Program
     {
-        static void Main(string[] args)
+        public static void Main()
         {
 
             MySqlConnection conn = DBUtils.GetDBConnection("stomadb");
@@ -18,43 +17,45 @@ namespace ClusterStomDB
             try
             {
                 string sql = "SELECT distinct ID_Doctor FROM stomadb.case_services WHERE ID_DOCTOR>0 and ID_DOCTOR<500";
-                MySqlCommand cmd = new MySqlCommand();
-                cmd.Connection = conn;
-                cmd.CommandText = sql;
-                List<int> ids = new List<int>();
+                MySqlCommand cmd = new MySqlCommand
+                {
+                    Connection = conn,
+                    CommandText = sql
+                };
+                List<int> idDoctor = new List<int>();
                 using (DbDataReader reader = cmd.ExecuteReader())
                 {
                     if (reader.HasRows)
                     {
                         while (reader.Read())
-                            ids.Add(reader.GetInt32(0));
+                            idDoctor.Add(reader.GetInt32(0));
                     }
                 }
                 sql = "SELECT id,code FROM stomadb.price;";
-                cmd = new MySqlCommand();
-                Dictionary<int, string> bzp = new Dictionary<int, string>();
-                Dictionary<int, string> pzp = new Dictionary<int, string>();
+                cmd.CommandText = sql;
+                SortedDictionary<int, string> bzpPrice = new SortedDictionary<int, string>();
+                SortedDictionary<int, string> pzpPrice = new SortedDictionary<int, string>();
                 using (DbDataReader reader = cmd.ExecuteReader())
                 {
                     if (reader.HasRows)
                     {
                         while (reader.Read())
-                            pzp.Add(reader.GetInt32(0), reader.GetString(1));
+                            pzpPrice.Add(reader.GetInt32(0), reader.GetString(1));
                     }
                 }
                 sql = "SELECT id,code FROM stomadb.price_orto_soc;";
-                cmd = new MySqlCommand();
+                cmd.CommandText = sql;
                 using (DbDataReader reader = cmd.ExecuteReader())
                 {
                     if (reader.HasRows)
                     {
                         while (reader.Read())
-                            bzp.Add(reader.GetInt32(0), reader.GetString(1));
+                            bzpPrice.Add(reader.GetInt32(0), reader.GetString(1));
                     }
-
+                }
                 List<Task> taskList = new List<Task>();
                 List<Doctor> doctors = new List<Doctor>();
-                foreach (int i in ids)
+                foreach (int i in idDoctor)
                 {
                     Doctor tmp = new Doctor(i, conn);//доктор иницилизировался
                     Task task = Task.Factory.StartNew(() => tmp.MakeTemplates());
@@ -62,22 +63,17 @@ namespace ClusterStomDB
                     taskList.Add(task);
                 }
                 Task.WaitAll(taskList.ToArray());
-              
-                //foreach (KeyValuePair<int, string> entry in price)
+                //foreach (Doctor d in doctors)
                 //{
-                //    Console.WriteLine(" ID={0} {1}", entry.Key, entry.Value);
+                //    d.PrintDoctorTemp();
                 //}
-                foreach(Doctor d in doctors)
-                {
-                    d.PrintDoctorTemp();
-                }
                 cmd.CommandText = "drop table templates";//пренести к доктору
                 cmd.ExecuteNonQuery();
                 cmd.CommandText = "CREATE TABLE templates ( Id INT AUTO_INCREMENT PRIMARY KEY, template_type INT DEFAULT - 1, id_doctor INT DEFAULT - 1, template_name VARCHAR(1024),template_services VARCHAR(1024) NOT NULL ); ";
                 cmd.ExecuteNonQuery();
                 foreach (Doctor d in doctors)
-                {   
-                    d.PushTempToDatabase(conn);                   
+                {
+                    d.PushTempToDatabase(conn);
                 }
             }
             catch (Exception e)
@@ -92,7 +88,7 @@ namespace ClusterStomDB
             }
             Console.Read();
         }
-        
+
 
     }
 }

@@ -1,49 +1,36 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using MySql.Data.MySqlClient;
 
 namespace ClusterStomDB
 {
-    class TaskOrder : IComparable<TaskOrder>, IEquatable<TaskOrder>
+    internal class TaskOrder : IComparable<TaskOrder>, IEquatable<TaskOrder>
     {
         public readonly long id;
         private int type = -1;
-        public TaskOrder(long i, long j, int bzp)
+        public TaskOrder(long i, string j, int bzp)
         {
-            this.type = bzp;
+            type = bzp;
             id = i;
-            services = new List<long> { j };
+            services = new List<string> { j };
         }
         public int GetOrderType() { return type; }
-        private List<long> services = new List<long>();
-        public long this[int index]
+        private List<string> services = new List<string>();
+        public void RefreshCodes()
         {
-            get
-            {
-                return services[index];
-            }
+
         }
-        public void AddServiceById(long i)
-        {   
-            if(!services.Contains(i))
-            services.Add(i);
+        public string this[int index] => services[index];
+        public void AddServiceById(string i)
+        {
+            if (!services.Contains(i)) services.Add(i);
         }
         public int CompareTo(TaskOrder p)
         {
-            return this.id.CompareTo(p.id);
+            return id.CompareTo(p.id);
         }
         public bool Equals(TaskOrder other)
         {
-            if (other == null)
-                return false;
-
-            if (this.id == other.id)
-                return true;
-            else
-                return false;
+            return id == other.id;
         }
         public void SortServicesById()
         {
@@ -57,9 +44,9 @@ namespace ClusterStomDB
         {
             Console.ForegroundColor = ConsoleColor.Cyan;
             Console.Write("{");
-            for(int i = 0; i<services.Count-1;i++)
-            {   
-                Console.Write("{0}, ",services[i]);
+            for (int i = 0; i < services.Count - 1; i++)
+            {
+                Console.Write("{0}, ", services[i]);
             }
             Console.Write("{0}", services[services.Count - 1]);
             Console.Write("} ");

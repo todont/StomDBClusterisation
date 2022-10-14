@@ -1,60 +1,59 @@
-﻿using System;
+﻿using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
+using System.Data.Common;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Data.Common;
-using MySql.Data.MySqlClient;
-using System.IO;
 
 namespace ClusterStomDB
 {
-    class Doctor : IComparable<Doctor>
+    internal class Doctor : IComparable<Doctor>
     {
         private class Template
         {
             private int type = -1;
-            public string name { get; private set; }
+            public string Name { get; private set; }
             public void AssignName()
             {
                 if (services.Count() == 0) return;
-                long keyservice = services[0];
-                if (this.type == 0)
+                string keyservice = services[0];
+                if (type == 1)
                 {
-                    foreach (long s in services)
+                    foreach (string s in services)
                     {
                         if (price[s].Value >= price[keyservice].Value)
                             keyservice = s;
                     }
-                    this.name = price[keyservice].Key;
+                    Name = price[keyservice].Key;
                 }
-                if (this.type == 1) 
-                { 
-                    foreach (long s in services)
+                if (type != 1)
+                {
+                    foreach (string s in services)
                     {
                         if (pricebzp[s].Value >= pricebzp[keyservice].Value)
                             keyservice = s;
                     }
-                    this.name = pricebzp[keyservice].Key;
+                    Name = pricebzp[keyservice].Key;
                 }
             }
-            public Template (int bzp)
+            public Template(int bzp)
             {
-                this.type = bzp;
+                type = bzp;
             }
             public int GetTemplateType()
             {
-                return this.type;
+                return type;
             }
-            public void Add(long i)
+            public void Add(string i)
             {
                 services.Add(i);
             }
-            public List<long> services = new List<long>();
-            override public string ToString()
+            public List<string> services = new List<string>();
+            public override string ToString()
             {
                 string s = "";
-                foreach(long serv in services)
+                foreach (string serv in services)
                 {
                     s += serv.ToString() + "*";
                 }
@@ -63,69 +62,79 @@ namespace ClusterStomDB
         }
         public readonly int id = 0;
         private string name = "";
-        private static Dictionary<long, KeyValuePair<string, double>> price = new Dictionary<long, KeyValuePair<string, double>>();
-        private static Dictionary<long, KeyValuePair<string, double>> pricebzp = new Dictionary<long, KeyValuePair<string, double>>();
+        private static Dictionary<string, KeyValuePair<string, double>> price = new Dictionary<string, KeyValuePair<string, double>>();
+        private static Dictionary<string, KeyValuePair<string, double>> pricebzp = new Dictionary<string, KeyValuePair<string, double>>();
         private List<Template> templates = new List<Template>();
         private List<Cluster> clusters = new List<Cluster>();
-        private List<Cluster> clustersBZP = new List<Cluster>();
-        private void InitPrice(MySqlConnection conn)
+        private List<TaskOrder> orders = new List<TaskOrder>();
+        private void InitPrice(MySqlConnection conn)//добавлять по уму
         {
             if (price.Count() != 0) return;
-            string sql = "SELECT ID,NAME,COST FROM stomadb.price";
-            MySqlCommand cmd = new MySqlCommand();
-            cmd.Connection = conn;
-            cmd.CommandText = sql;
+            string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM price_orto_soc) SELECT * FROM cte WHERE rn = 1";
+            MySqlCommand cmd = new MySqlCommand
+            {
+                Connection = conn,
+                CommandText = sql
+            };
             using (DbDataReader reader = cmd.ExecuteReader())
             {
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        price.Add(reader.GetInt64(0), new KeyValuePair<string, double>(reader.GetString(1),reader.GetDouble(2)));
+                        price.Add(reader.GetString(0), new KeyValuePair<string, double>(reader.GetString(1), reader.GetDouble(2)));
                 }
             }
         }
         public void PushTempToDatabase(MySqlConnection conn)
-        {   
-            foreach(Template t in templates)
-            {   if (t.services.Count() == 0) continue;
-                MySqlCommand cmd = new MySqlCommand();
-                cmd.Connection = conn;
+        {
+            foreach (Template t in templates)
+            {
+                if (t.services.Count() == 0) continue;
+                MySqlCommand cmd = new MySqlCommand
+                {
+                    Connection = conn
+                };
                 t.AssignName();
-                cmd.CommandText = "INSERT INTO `stomadb`.`templates` (`template_type`,`id_doctor`,`template_name`,`template_services`) VALUES ('" + t.GetTemplateType().ToString() + "'," + this.id.ToString() + ",'" +t.name+"','" + t.ToString() + "');";
+                cmd.CommandText = "INSERT INTO `stomadb`.`templates` (`template_type`,`id_doctor`,`template_name`,`template_services`) VALUES ('" + t.GetTemplateType().ToString() + "'," + id.ToString() + ",'" + t.Name + "','" + t.ToString() + "');";
                 cmd.ExecuteNonQuery();
             }
         }
         private void InitPriceBZP(MySqlConnection conn)
         {
             if (pricebzp.Count() != 0) return;
-            string sql = "SELECT ID,NAME,COST FROM stomadb.price_orto_soc";
-            MySqlCommand cmd = new MySqlCommand();
-            cmd.Connection = conn;
-            cmd.CommandText = sql;
+            string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM stomadb.price) SELECT * FROM cte WHERE rn = 1";
+            MySqlCommand mySqlCommand = new MySqlCommand
+            {
+                Connection = conn,
+                CommandText = sql
+            };
+            MySqlCommand cmd = mySqlCommand;
             using (DbDataReader reader = cmd.ExecuteReader())
             {
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        pricebzp.Add(reader.GetInt64(0), new KeyValuePair<string, double>(reader.GetString(1), reader.GetDouble(2)));
+                        pricebzp.Add(reader.GetString(0), new KeyValuePair<string, double>(reader.GetString(1), reader.GetDouble(2)));
                 }
             }
         }
         public void PrintDoctorTemp()
-        {   if(clusters.Count()==0) return;
-            using (FileStream fs = new FileStream("test2.txt", FileMode.Append)) {
+        {
+            if (clusters.Count() == 0) return;
+            using (FileStream fs = new FileStream("test2.txt", FileMode.Append))
+            {
 
                 StreamWriter w = new StreamWriter(fs, Encoding.Default);
                 Console.WriteLine("===============================================================");
                 w.WriteLine("===============================================================");
-                Console.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
-                w.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), this.name);
+                Console.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), name);
+                w.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), name);
                 Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны беспалтного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
                 w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны беспалтного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
                 int j = 0;
                 for (int i = 0; i < templates.Count(); i++)
-                {  
-                    if (templates[i].GetTemplateType()==0)
+                {
+                    if (templates[i].GetTemplateType() == 0)
                     {
                         j++;
                         continue;
@@ -133,7 +142,7 @@ namespace ClusterStomDB
                     Console.WriteLine("\nШаблон {0}: ", i + 1 - j);
                     w.WriteLine("\nШаблон {0}: ", i + 1 - j);
                     int counter = 0;
-                    foreach (long s in templates[i].services)
+                    foreach (string s in templates[i].services)
                     {
                         counter++;
 
@@ -155,15 +164,15 @@ namespace ClusterStomDB
                 j = 0;
                 for (int i = 0; i < templates.Count(); i++)
                 {
-                    if (templates[i].GetTemplateType()==1) 
+                    if (templates[i].GetTemplateType() == 1)
                     {
                         j++;
                         continue;
                     }
-                    Console.WriteLine("\nШаблон {0}: ", i + 1-j);
-                    w.WriteLine("\nШаблон {0}: ", i + 1-j);
+                    Console.WriteLine("\nШаблон {0}: ", i + 1 - j);
+                    w.WriteLine("\nШаблон {0}: ", i + 1 - j);
                     int counter = 0;
-                    foreach (long s in templates[i].services)
+                    foreach (string s in templates[i].services)
                     {
                         counter++;
                         if (price.ContainsKey(s))
@@ -179,73 +188,75 @@ namespace ClusterStomDB
                     }
                 }
                 Console.WriteLine("\n===============================================================");
-            w.WriteLine("\n===============================================================");
+                w.WriteLine("\n===============================================================");
             }
         }
         public void MakeTemplates()
         {
             //кластеризация
-            this.MakeClusters(1);
-            clustersBZP = new List<Cluster>(clusters);
-            clusters = new List<Cluster>();
-
-            this.MakeClusters(0);
-            foreach(Cluster c in this.clusters)
+            MakeClusters();
+            foreach (Cluster c in clusters)
             {
                 templates.Add(MakeTemplateFromCluster(c));
             }
-            foreach (Cluster c in this.clustersBZP)
-            {
-                templates.Add(MakeTemplateFromCluster(c));
-            }
-            if(orders.Count()>0)
-            Console.WriteLine("\nDotor_ID={0} NOC={3} Number of temlates = {1} number of orders = {2}", this.id, templates.Count(),orders.Count(),clusters.Count());
+            if (orders.Count() > 0)
+                Console.WriteLine("\nDotor_ID={0} NOC={3} Number of temlates = {1} number of orders = {2}", id, templates.Count(), orders.Count(), clusters.Count());
         }
-        private List<TaskOrder> orders = new List<TaskOrder>();
+
         private Template MakeTemplateFromCluster(Cluster c)
         {
             //Анализ кластера
-            SortedDictionary<long, int> table = c.GetClusterTable();
-            var sortedTable = from entry in table where entry.Value > c.OrdersCount()*80/90 orderby entry.Value  descending select entry ;//доделать
+            SortedDictionary<string, int> table = c.GetClusterTable();
+            IOrderedEnumerable<KeyValuePair<string, int>> sortedTable = from entry in table where entry.Value > c.OrdersCount() * 80 / 90 orderby entry.Value descending select entry;//доделать
             Template tmp = new Template(c.GetClusterType());
-            foreach(KeyValuePair<long, int> l in sortedTable)
+            foreach (KeyValuePair<string, int> l in sortedTable)
             {
                 tmp.Add(l.Key);
             }
             return tmp;
         }
 
-        public Doctor(int i,MySqlConnection conn)
+        public Doctor(int i, MySqlConnection conn)
         {
             id = i;
-            this.InitPrice(conn);
-            this.InitPriceBZP(conn);
-            this.InitByID(conn, i);
-            this.InitNameById(conn, i);
+            InitPrice(conn);
+            InitPriceBZP(conn);
+            InitByID(conn, i);
+            InitNameById(conn, i);
         }
 
         private void InitNameById(MySqlConnection conn, int i)
         {
-            string sql = "SELECT doctor_id,user_id,id,name FROM stomadb.doctor_spec inner join users on user_id=id where doctor_id="+ i.ToString();
-            MySqlCommand cmd = new MySqlCommand();
-            cmd.Connection = conn;
-            cmd.CommandText = sql;
+            string sql = "SELECT doctor_id,user_id,id,name FROM stomadb.doctor_spec inner join users on user_id=id where doctor_id=" + i.ToString();
+            MySqlCommand cmd = new MySqlCommand
+            {
+                Connection = conn,
+                CommandText = sql
+            };
             using (DbDataReader reader = cmd.ExecuteReader())
             {
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        this.name = reader.GetString(3);
+                        name = reader.GetString(3);
                 }
             }
         }
 
         private void InitByID(MySqlConnection conn, int id)//инциализация доктора, потом пойдет создание шаблонов для него-же
         {
-            string sql = "Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER,ID, orders.ID_DOCTOR, case_services.ID_DOCTOR, order_type from case_services inner join orders on id_order=ID WHERE ID_ORDER>0 and case_services.ID_DOCTOR=" + id.ToString() + " ORDER BY ID_ORDER ";
-            MySqlCommand cmd = new MySqlCommand();
-            cmd.Connection = conn;
-            cmd.CommandText = sql;
+            string sql = @"SELECT * FROM (Select ID_SERVICE,ID, ID_ORDER, tmp.ID_DOCTOR as ID_doc, code, order_type from 
+(Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER, orders.ID_DOCTOR, case_services.ID_DOCTOR as ID_doc, orders.order_type from case_services inner join orders on id_order=ID WHERE ID_ORDER>0 and order_type=1) as tmp 
+left join stomadb.price_orto_soc on tmp.ID_PROFILE=stomadb.price_orto_soc.ID 
+union Select ID_SERVICE,ID, ID_ORDER, tmp.ID_DOCTOR as ID_doc, code, order_type from 
+(Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER, orders.ID_DOCTOR, case_services.ID_DOCTOR as ID_doc, orders.order_type from case_services inner join orders on id_order=ID WHERE ID_ORDER>0 and order_type!=1) as tmp 
+inner join stomadb.price on tmp.ID_PROFILE=stomadb.price.ID) as u
+where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
+            MySqlCommand cmd = new MySqlCommand
+            {
+                Connection = conn,
+                CommandText = sql
+            };
             long prevCaseId = 0;
             List<TaskOrder> cases = new List<TaskOrder>();
             using (DbDataReader reader = cmd.ExecuteReader())
@@ -254,21 +265,21 @@ namespace ClusterStomDB
                 {
                     while (reader.Read())
                     {
-                        long currCaseId = reader.GetInt64(3);
+                        long currCaseId = reader.GetInt64(2);
                         if (currCaseId != prevCaseId || prevCaseId == 0)
                         {
-                            TaskOrder t = new TaskOrder(currCaseId, reader.GetInt64(2),reader.GetInt32(7));
+                            TaskOrder t = new TaskOrder(currCaseId, reader.GetString(4), reader.GetInt32(5));//отредактировать с учетом типов
                             cases.Add(t);
                         }
                         else
                         {
-                            cases[cases.Count - 1].AddServiceById(reader.GetInt64(2));
+                            cases[cases.Count - 1].AddServiceById(reader.GetString(4));
                         }
                         prevCaseId = currCaseId;
                     }
                 }
             }
-            this.orders = cases;
+            orders = cases;
         }
         public int Count()
         {
@@ -276,7 +287,7 @@ namespace ClusterStomDB
         }
         public int CompareTo(Doctor p)
         {
-            return this.Count().CompareTo(p.Count());
+            return Count().CompareTo(p.Count());
         }
         //public Template this[int index]
         //{
@@ -285,24 +296,24 @@ namespace ClusterStomDB
         //        return templates[index];
         //    }
         //}
-        private void MakeClusters(int isBZP)//рразобраться с мейном и не мейно, что и куда
+        private void MakeClusters()//рразобраться с мейном и не мейно, что и куда
         {
             //процесс инициализации
-            foreach (TaskOrder t in this.orders)
+            foreach (TaskOrder t in orders)
             {
-                if (t.GetOrderType()!=isBZP) continue;
+
                 t.SortServicesById();
                 Cluster tmp = new Cluster(t.GetOrderType());
                 tmp.AddOrder(t);
-                this.clusters.Add(tmp);
+                clusters.Add(tmp);
                 double addProfitNC = GlobalProfit();
-                this.clusters.Remove(tmp);
+                clusters.Remove(tmp);
                 tmp.RemoveOrder(t);
                 double addProfitECMax = 0;
                 // Console.WriteLine("Add profit(new cluster) = {0}\n\n", addProfitNC);
                 int counter = 0;
                 int max = 0;
-                foreach (Cluster c in this.clusters)
+                foreach (Cluster c in clusters)
                 {
                     c.AddOrder(t);
                     double addProfitEC = GlobalProfit();
@@ -315,20 +326,20 @@ namespace ClusterStomDB
                     counter++;
                     c.RemoveOrder(t);
                 }
-                if (this.clusters.Count == 0)
+                if (clusters.Count == 0)
                 {
                     tmp.AddOrder(t);
-                    this.clusters.Add(tmp);
+                    clusters.Add(tmp);
                     continue;
                 }
                 if (addProfitECMax - addProfitNC > UtilConst.eps)
                 {
-                    this.clusters[max].AddOrder(t);
+                    clusters[max].AddOrder(t);
                 }
                 else
                 {
                     tmp.AddOrder(t);
-                    this.clusters.Add(tmp);
+                    clusters.Add(tmp);
                 }
             }
             //итерации, причем создадим отдельно список мувов
@@ -339,19 +350,19 @@ namespace ClusterStomDB
                 if (!MakeIter()) break;
             }
             //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где ширина шаблна меньше 2, нужно попробовать отпиливать, пока не сстанет меньше 25.
-            this.clusters.Sort();
-            this.clusters.Reverse();
+            clusters.Sort();
+            clusters.Reverse();
             int j = 0;
-            for (int i = 0; i < this.clusters.Count(); i++)
+            for (int i = 0; i < clusters.Count(); i++)
             {
-                if (this.clusters[i].OrdersCount() == 2)
+                if (clusters[i].OrdersCount() == 2)
                 {
                     j = i;
                     break;
                 }
             }
 
-            this.clusters.RemoveRange(j, this.clusters.Count - j);
+            clusters.RemoveRange(j, clusters.Count - j);
             //Console.WriteLine("DOCTOR_ID={0} Clusters.Count()={1}", id, this.clusters.Count());
 
             //PrintResults(clusters);
@@ -361,11 +372,11 @@ namespace ClusterStomDB
         {
             bool ismoved = false;
             SortedSet<long> moved = new SortedSet<long>();
-            for (int i = 0; i < this.clusters.Count; i++)
+            for (int i = 0; i < clusters.Count; i++)
             {
-                for (int j = 0; j < this.clusters[i].OrdersCount(); j++)
+                for (int j = 0; j < clusters[i].OrdersCount(); j++)
                 {
-                    if (moved.Contains(this.clusters[i][j].id))
+                    if (moved.Contains(clusters[i][j].id))
                     {
 
                         continue;
@@ -376,18 +387,14 @@ namespace ClusterStomDB
                     double maxProfit = 0;
                     int numberMax = -1;
                     bool findMax = false;
-                    TaskOrder tmp = this.clusters[i][j];
-                    this.clusters[i].RemoveOrder(tmp);
-                    int c = this.clusters[i].OrdersCount();
-                    for (int k = 0; k < this.clusters.Count; k++) //поиск лучшего кластера
+                    TaskOrder tmp = clusters[i][j];
+                    clusters[i].RemoveOrder(tmp);
+                    for (int k = 0; k < clusters.Count; k++) //поиск лучшего кластера
                     {
-                        if (k == i)
-                        {
-                            continue;
-                        }
-                        this.clusters[k].AddOrder(tmp);
+                        if (k == i) continue;
+                        clusters[k].AddOrder(tmp);
                         newProfit = GlobalProfit();
-                        this.clusters[k].RemoveOrder(tmp);
+                        clusters[k].RemoveOrder(tmp);
                         if (newProfit - currProfit > UtilConst.eps && newProfit - maxProfit > UtilConst.eps)
                         {
                             maxProfit = newProfit;
@@ -395,27 +402,27 @@ namespace ClusterStomDB
                             findMax = true;
                         }
                     }
-                    if (findMax == true)
+                    if (findMax)
                     {
-                        this.clusters[numberMax].AddOrder(tmp);
+                        clusters[numberMax].AddOrder(tmp);
                         // Console.WriteLine("Moved from {0} to {1} id={2} max profit = {3}", i, numberMax, tmp.id,maxProfit);
                         ismoved = true;
                     }
                     else
                     {
-                        this.clusters[i].AddOrder(tmp);
+                        clusters[i].AddOrder(tmp);
                     }
                     moved.Add(tmp.id);
                 }
 
             }
             moved.Clear();
-            this.clusters.Sort();
-            this.clusters.Reverse();
+            clusters.Sort();
+            clusters.Reverse();
             int l = -1;
-            for (int i = 0; i < this.clusters.Count(); i++)
+            for (int i = 0; i < clusters.Count(); i++)
             {
-                if (this.clusters[i].OrdersCount() == 0)
+                if (clusters[i].OrdersCount() == 0)
                 {
                     l = i;
                     break;
@@ -423,33 +430,22 @@ namespace ClusterStomDB
             }
             if (l > 0)
             {
-                clusters.RemoveRange(l, this.clusters.Count - l);
+                clusters.RemoveRange(l, clusters.Count - l);
             }
-            double p = GlobalProfit();
-            // Console.WriteLine("Global profit = {0}\n", p);
             return ismoved;
         }
         private double GlobalProfit()
         {
             double num = 0;
             double denom = 0;
-            if (this.clusters.Count == 0) return 0;
-            foreach (Cluster c in this.clusters)
+            if (clusters.Count == 0) return 0;
+            foreach (Cluster c in clusters)
             {
                 if (c.OrdersCount() == 0) continue;
-                num += c.gradient * (double)c.OrdersCount();
+                num += c.Gradient * (double)c.OrdersCount();
                 denom += (double)c.OrdersCount();
             }
             return num / denom;
         }
-        //private static void Print()
-        //{
-        //    for(int i =0;i<this.clusters.Count;i++)
-        //    {
-        //        Console.WriteLine("Cluster {0}:",i);
-        //        this.clusters[i].Print();
-        //    }
-
-        //}
     }
 }
