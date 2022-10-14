@@ -8,15 +8,15 @@ namespace ClusterStomDB
         public double Gradient { get; private set; } = 0;
         private SortedDictionary<string, int> OrdersTable = new SortedDictionary<string, int>();
         private List<TaskOrder> Orders = new List<TaskOrder>();
-        private int type = -1;
+        private readonly int Type = -1;
         private static double r = 0.1;
         public Cluster(int bzp)
         {
-            type = bzp;
+            Type = bzp;
         }
         public int GetClusterType()
         {
-            return type;
+            return Type;
         }
         public void SetR(double i)
         {
@@ -37,7 +37,6 @@ namespace ClusterStomDB
         public void Print()
         {
             Orders.Sort();
-
             Console.WriteLine("==================================");
             foreach (TaskOrder o in Orders)
             {
@@ -49,14 +48,17 @@ namespace ClusterStomDB
         private double RecalculateGradient()
         {
             Gradient = 0;
-            if (Orders.Count == 0) return 0;
+            if (Orders.Count == 0)
+            {
+                return 0;
+            }
             foreach (int t in OrdersTable.Values)
             {
                 double k = 1.0;//временно, потом тут будет коэффициент услуги по докторам при обучении алгоритма
                 Gradient += k * t;
             }
-            Gradient = Gradient / (double)OrdersTable.Count / (double)OrdersTable.Count;
-            return Gradient / (double)OrdersTable.Count / Math.Pow((double)OrdersTable.Count, r);
+            Gradient = Gradient / OrdersTable.Count / OrdersTable.Count;
+            return Gradient / OrdersTable.Count / Math.Pow(OrdersTable.Count, r);
         }
         public void AddOrder(TaskOrder o)
         {

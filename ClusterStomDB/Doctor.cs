@@ -12,29 +12,37 @@ namespace ClusterStomDB
     {
         private class Template
         {
-            private int type = -1;
+            private readonly int type = -1;
             public string Name { get; private set; }
             public void AssignName()
             {
-                if (services.Count() == 0) return;
+                if (services.Count() == 0)
+                {
+                    return;
+                }
                 string keyservice = services[0];
+
                 if (type == 1)
                 {
                     foreach (string s in services)
                     {
-                        if (price[s].Value >= price[keyservice].Value)
+                        if (pricebzp[s].Value >= pricebzp[keyservice].Value)
+                        {
                             keyservice = s;
+                        }
                     }
-                    Name = price[keyservice].Key;
+                    Name = pricebzp[keyservice].Key;
                 }
-                if (type != 1)
+                else
                 {
                     foreach (string s in services)
                     {
-                        if (pricebzp[s].Value >= pricebzp[keyservice].Value)
+                        if (price[s].Value >= price[keyservice].Value)
+                        {
                             keyservice = s;
+                        }
                     }
-                    Name = pricebzp[keyservice].Key;
+                    Name = price[keyservice].Key;
                 }
             }
             public Template(int bzp)
@@ -62,15 +70,18 @@ namespace ClusterStomDB
         }
         public readonly int id = 0;
         private string name = "";
-        private static Dictionary<string, KeyValuePair<string, double>> price = new Dictionary<string, KeyValuePair<string, double>>();
+        private static Dictionary<string, KeyValuePair<string, double>> price = new Dictionary<string, KeyValuePair<string, double>>();//перенести в конструктор
         private static Dictionary<string, KeyValuePair<string, double>> pricebzp = new Dictionary<string, KeyValuePair<string, double>>();
         private List<Template> templates = new List<Template>();
         private List<Cluster> clusters = new List<Cluster>();
         private List<TaskOrder> orders = new List<TaskOrder>();
         private void InitPrice(MySqlConnection conn)//добавлять по уму
         {
-            if (price.Count() != 0) return;
-            string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM price_orto_soc) SELECT * FROM cte WHERE rn = 1";
+            if (price.Count() != 0)
+            {
+                return;
+            }
+            string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM price) SELECT * FROM cte WHERE rn = 1";
             MySqlCommand cmd = new MySqlCommand
             {
                 Connection = conn,
@@ -81,7 +92,15 @@ namespace ClusterStomDB
                 if (reader.HasRows)
                 {
                     while (reader.Read())
-                        price.Add(reader.GetString(0), new KeyValuePair<string, double>(reader.GetString(1), reader.GetDouble(2)));
+                    {
+                        string tmp = reader.GetString(1);
+                        if (!char.IsLetter(tmp[1]) && char.IsLetter(tmp[0]))
+                        {
+                            char t = tmp[1];
+                            tmp = tmp.Remove(0, tmp.IndexOf(' ') + 1);
+                        }
+                        price.Add(reader.GetString(0), new KeyValuePair<string, double>(tmp, reader.GetDouble(2)));
+                    }
                 }
             }
         }
@@ -89,7 +108,11 @@ namespace ClusterStomDB
         {
             foreach (Template t in templates)
             {
-                if (t.services.Count() == 0) continue;
+                if (t.services.Count() == 0)
+                {
+                    continue;
+                }
+
                 MySqlCommand cmd = new MySqlCommand
                 {
                     Connection = conn
@@ -99,10 +122,14 @@ namespace ClusterStomDB
                 cmd.ExecuteNonQuery();
             }
         }
-        private void InitPriceBZP(MySqlConnection conn)
+        private void InitPriceBZP(MySqlConnection conn)//сделать 1 прайс
         {
-            if (pricebzp.Count() != 0) return;
-            string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM stomadb.price) SELECT * FROM cte WHERE rn = 1";
+            if (pricebzp.Count() != 0)
+            {
+                return;
+            }
+
+            string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM stomadb.price_orto_soc) SELECT * FROM cte WHERE rn = 1";
             MySqlCommand mySqlCommand = new MySqlCommand
             {
                 Connection = conn,
@@ -114,13 +141,19 @@ namespace ClusterStomDB
                 if (reader.HasRows)
                 {
                     while (reader.Read())
+                    {
                         pricebzp.Add(reader.GetString(0), new KeyValuePair<string, double>(reader.GetString(1), reader.GetDouble(2)));
+                    }
                 }
             }
         }
         public void PrintDoctorTemp()
         {
-            if (clusters.Count() == 0) return;
+            if (clusters.Count() == 0)
+            {
+                return;
+            }
+
             using (FileStream fs = new FileStream("test2.txt", FileMode.Append))
             {
 
@@ -129,8 +162,8 @@ namespace ClusterStomDB
                 w.WriteLine("===============================================================");
                 Console.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), name);
                 w.WriteLine("\n{2}\nDoctor ID = {0}  Количество шаблонов: {1}\n", id, templates.Count(), name);
-                Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны беспалтного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
-                w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны беспалтного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны платного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны платного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
                 int j = 0;
                 for (int i = 0; i < templates.Count(); i++)
                 {
@@ -159,8 +192,8 @@ namespace ClusterStomDB
                         }
                     }
                 }
-                Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны платного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
-                w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны платного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                Console.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны бесплатного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
+                w.WriteLine("\n++++++++++++++++++++++++++++++++++++++++ \n Шаблоны бесплатного зубопротезирования:\n++++++++++++++++++++++++++++++++++++++++ ");
                 j = 0;
                 for (int i = 0; i < templates.Count(); i++)
                 {
@@ -193,21 +226,21 @@ namespace ClusterStomDB
         }
         public void MakeTemplates()
         {
-            //кластеризация
             MakeClusters();
             foreach (Cluster c in clusters)
             {
                 templates.Add(MakeTemplateFromCluster(c));
             }
             if (orders.Count() > 0)
+            {
                 Console.WriteLine("\nDotor_ID={0} NOC={3} Number of temlates = {1} number of orders = {2}", id, templates.Count(), orders.Count(), clusters.Count());
+            }
         }
 
         private Template MakeTemplateFromCluster(Cluster c)
         {
-            //Анализ кластера
             SortedDictionary<string, int> table = c.GetClusterTable();
-            IOrderedEnumerable<KeyValuePair<string, int>> sortedTable = from entry in table where entry.Value > c.OrdersCount() * 80 / 90 orderby entry.Value descending select entry;//доделать
+            IOrderedEnumerable<KeyValuePair<string, int>> sortedTable = from entry in table where entry.Value > c.OrdersCount() * 75 / 100 orderby entry.Value descending select entry;
             Template tmp = new Template(c.GetClusterType());
             foreach (KeyValuePair<string, int> l in sortedTable)
             {
@@ -215,7 +248,6 @@ namespace ClusterStomDB
             }
             return tmp;
         }
-
         public Doctor(int i, MySqlConnection conn)
         {
             id = i;
@@ -224,7 +256,6 @@ namespace ClusterStomDB
             InitByID(conn, i);
             InitNameById(conn, i);
         }
-
         private void InitNameById(MySqlConnection conn, int i)
         {
             string sql = "SELECT doctor_id,user_id,id,name FROM stomadb.doctor_spec inner join users on user_id=id where doctor_id=" + i.ToString();
@@ -238,7 +269,9 @@ namespace ClusterStomDB
                 if (reader.HasRows)
                 {
                     while (reader.Read())
+                    {
                         name = reader.GetString(3);
+                    }
                 }
             }
         }
@@ -347,7 +380,10 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
             // Console.WriteLine("Global profit before iteration = {0}\n", p);
             for (int i = 0; i < 10; i++)
             {
-                if (!MakeIter()) break;
+                if (!MakeIter())
+                {
+                    break;
+                }
             }
             //неторого рода оптимизация(мб еще стоит выкинуть шаблоны, где ширина шаблна меньше 2, нужно попробовать отпиливать, пока не сстанет меньше 25.
             clusters.Sort();
@@ -391,7 +427,11 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
                     clusters[i].RemoveOrder(tmp);
                     for (int k = 0; k < clusters.Count; k++) //поиск лучшего кластера
                     {
-                        if (k == i) continue;
+                        if (k == i)
+                        {
+                            continue;
+                        }
+
                         clusters[k].AddOrder(tmp);
                         newProfit = GlobalProfit();
                         clusters[k].RemoveOrder(tmp);
@@ -438,12 +478,19 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
         {
             double num = 0;
             double denom = 0;
-            if (clusters.Count == 0) return 0;
+            if (clusters.Count == 0)
+            {
+                return 0;
+            }
+
             foreach (Cluster c in clusters)
             {
-                if (c.OrdersCount() == 0) continue;
-                num += c.Gradient * (double)c.OrdersCount();
-                denom += (double)c.OrdersCount();
+                if (c.OrdersCount() == 0)
+                {
+                    continue;
+                }
+                num += c.Gradient * c.OrdersCount();
+                denom += c.OrdersCount();
             }
             return num / denom;
         }

@@ -6,7 +6,7 @@ namespace ClusterStomDB
     internal class TaskOrder : IComparable<TaskOrder>, IEquatable<TaskOrder>
     {
         public readonly long id;
-        private int type = -1;
+        private readonly int type = -1;
         public TaskOrder(long i, string j, int bzp)
         {
             type = bzp;
@@ -22,7 +22,10 @@ namespace ClusterStomDB
         public string this[int index] => services[index];
         public void AddServiceById(string i)
         {
-            if (!services.Contains(i)) services.Add(i);
+            if (!services.Contains(i))
+            {
+                services.Add(i);
+            }
         }
         public int CompareTo(TaskOrder p)
         {
