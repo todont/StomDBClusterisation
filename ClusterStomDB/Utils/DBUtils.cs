@@ -2,7 +2,7 @@
 
 namespace ClusterStomDB
 {
-    internal class DBUtils
+    internal static class DBUtils
     {
         public static MySqlConnection GetDBConnection(string database)
         {
