@@ -1,24 +1,21 @@
 ﻿using ClusterStomDB;
 using MySql.Data.MySqlClient;
-
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
-using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static ClusterSotmDB.Clinic;
 
 namespace ClusterSotmDB
 {
     internal sealed class Clinic
     {
         private static Clinic instance;
-        private readonly static Dictionary<string, KeyValuePair<string, double>> price = new Dictionary<string, KeyValuePair<string, double>>();
-        private List<Doctor> doctors = new List<Doctor>();
-        private MySqlConnection conn;
+        private static readonly Dictionary<string, KeyValuePair<string, double>> price = new Dictionary<string, KeyValuePair<string, double>>();
+        private readonly List<Doctor> doctors = new List<Doctor>();
+        private readonly MySqlConnection conn;
         private void InitPrices(MySqlConnection conn)
         {
             string sql = "WITH cte AS (SELECT code,NAME,COST,ROW_NUMBER() OVER (PARTITION BY code ORDER BY id DESC) AS rn FROM price) SELECT * FROM cte WHERE rn = 1";
@@ -67,10 +64,10 @@ namespace ClusterSotmDB
         {
             public readonly int id = 0;
             private string Name = "";
-            private List<Template> Templates = new List<Template>();
-            private List<Cluster> Clusters = new List<Cluster>();
+            private readonly List<Template> Templates = new List<Template>();
+            private readonly List<Cluster> Clusters = new List<Cluster>();
             private List<TaskOrder> Orders = new List<TaskOrder>();
-            public Doctor(int i, MySqlConnection conn, Dictionary<string, KeyValuePair<string, double>> price)
+            public Doctor(int i, MySqlConnection conn)
             {
                 id = i;
                 InitServisesByID(conn, i);
@@ -87,7 +84,7 @@ namespace ClusterSotmDB
                     services = new List<string> { j };
                 }
                 public int GetOrderType() { return type; }
-                private List<string> services = new List<string>();
+                private readonly List<string> services = new List<string>();
                 public string this[int index] => services[index];
                 public void AddServiceById(string i)
                 {
@@ -108,7 +105,11 @@ namespace ClusterSotmDB
                 {
                     services.Sort();
                 }
-                public int Len() => services.Count;
+                public int Len()
+                {
+                    return services.Count;
+                }
+
                 public void Print()
                 {
                     Console.ForegroundColor = ConsoleColor.Cyan;
@@ -170,8 +171,8 @@ namespace ClusterSotmDB
             internal class Cluster : IComparable<Cluster>
             {
                 public double Gradient { get; private set; } = 0;
-                private SortedDictionary<string, int> OrdersTable = new SortedDictionary<string, int>();
-                private List<TaskOrder> Orders = new List<TaskOrder>();
+                private readonly SortedDictionary<string, int> OrdersTable = new SortedDictionary<string, int>();
+                private readonly List<TaskOrder> Orders = new List<TaskOrder>();
                 private readonly int Type;
                 private static double r = 0.1;
                 public Cluster(int bzp)
@@ -375,10 +376,10 @@ namespace ClusterSotmDB
                     Templates.Add(MakeTemplateFromCluster(c));
                 }
             }
-            private Template MakeTemplateFromCluster(Cluster c)
+            private Template MakeTemplateFromCluster(Cluster c)//отвечает за длину шаблона
             {
                 SortedDictionary<string, int> table = c.GetClusterTable();
-                IOrderedEnumerable<KeyValuePair<string, int>> sortedTable = from entry in table where entry.Value > c.OrdersCount() * 75 / 100 orderby entry.Value descending select entry;
+                IOrderedEnumerable<KeyValuePair<string, int>> sortedTable = from entry in table where entry.Value > c.OrdersCount() * UtilConst.Percent orderby entry.Value descending select entry;
                 Template tmp = new Template(c.GetClusterType());
                 foreach (KeyValuePair<string, int> l in sortedTable)
                 {
@@ -414,7 +415,7 @@ left join price_orto_soc on tmp.ID_PROFILE=price_orto_soc.ID
 union Select ID_SERVICE,ID, ID_ORDER, tmp.ID_DOCTOR as ID_doc, code, order_type from 
 (Select ID_SERVICE, ID_CASE,ID_PROFILE, ID_ORDER, orders.ID_DOCTOR, case_services.ID_DOCTOR as ID_doc, orders.order_type from case_services inner join orders on id_order=ID WHERE ID_ORDER>0 and order_type!=1) as tmp 
 inner join price on tmp.ID_PROFILE=price.ID) as u
-where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
+where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER limit 2500";
                 MySqlCommand cmd = new MySqlCommand
                 {
                     Connection = conn,
@@ -503,7 +504,7 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
                 }
                 Clusters.Sort();
                 Clusters.Reverse();
-                int j = 0;
+                int j = 0;//а вот тут надо продумать момент с докторами с малым количеством кластеров большой длины
                 for (int i = 0; i < Clusters.Count; i++)
                 {
                     if (Clusters[i].OrdersCount() == 2)
@@ -511,6 +512,10 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
                         j = i;
                         break;
                     }
+                }
+                if (j + UtilConst.MinTempNumber > Clusters.Count)
+                {
+                    return;
                 }
                 Clusters.RemoveRange(j, Clusters.Count - j);
             }
@@ -630,7 +635,7 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
                 {
                     d.PrintDoctorTemp();
                 }
-                
+
             }
             catch (Exception e)
             {
@@ -645,7 +650,7 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
             }
 
         }
-        private Clinic(MySqlConnection conn)//разобрать этот трешак
+        private Clinic(MySqlConnection conn)
         {
             this.conn = conn;
             conn.Open();
@@ -671,7 +676,7 @@ where u.ID_doc =" + id.ToString() + " ORDER BY ID_ORDER ";
                 }
                 foreach (int i in idDoctor)
                 {
-                    Doctor tmp = new Doctor(i, conn, price);
+                    Doctor tmp = new Doctor(i, conn);
                     doctors.Add(tmp);
                 }
             }
